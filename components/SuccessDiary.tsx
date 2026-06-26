@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Book, PenTool, Star, Plus } from 'lucide-react';
 import { DiaryEntry, Mood } from '../types';
-import { generateDiaryComment } from '../services/geminiService';
+import { generateDiaryComment } from '../services/aiService';
 import MoneyAvatar from './MoneyAvatar';
 
 interface SuccessDiaryProps {
@@ -24,12 +24,12 @@ const SuccessDiary: React.FC<SuccessDiaryProps> = ({ entries, setEntries, setMon
     const aiComment = await generateDiaryComment(newContent);
     setMoneyMood(Mood.EXCITED);
 
-    const newEntry: DiaryEntry = {
-      id: Date.now().toString(),
-      date: new Date().toISOString(),
-      content: newContent,
-      aiComment: aiComment
-    };
+    const res = await fetch('/api/diary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: new Date().toISOString(), content: newContent, aiComment }),
+    });
+    const newEntry = await res.json();
 
     setEntries(prev => [newEntry, ...prev]);
     setIsWriting(false);

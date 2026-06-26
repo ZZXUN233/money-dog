@@ -20,55 +20,47 @@ const DreamSystem: React.FC<DreamSystemProps> = ({ dreams, setDreams, onBack }) 
   const [newTarget, setNewTarget] = useState('');
   const [newDeadline, setNewDeadline] = useState('');
 
-  const handleCreateDream = () => {
+  const handleCreateDream = async () => {
     if (!newTitle || !newTarget) return;
 
-    const newDream: Dream = {
-      id: Date.now().toString(),
-      title: newTitle,
-      targetAmount: parseFloat(newTarget),
-      currentAmount: 0,
-      deadline: newDeadline || '未定',
-      coverImage: `https://picsum.photos/400/200?random=${Date.now()}`
-    };
-
-    setDreams(prev => [...prev, newDream]);
+    const res = await fetch('/api/dreams', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newTitle, targetAmount: newTarget, deadline: newDeadline }),
+    });
+    const newDream = await res.json();
+    setDreams(prev => [newDream, ...prev]);
     setIsCreating(false);
     setNewTitle('');
     setNewTarget('');
     setNewDeadline('');
   };
 
-  const handleDeposit = () => {
+  const handleDeposit = async () => {
     if (!selectedDreamId || !depositAmount) return;
-    
+
     const amount = parseFloat(depositAmount);
     if (isNaN(amount) || amount <= 0) return;
 
-    setDreams(prev => prev.map(d => {
-      if (d.id === selectedDreamId) {
-        const updated = { ...d, currentAmount: d.currentAmount + amount };
-        // Check for completion
-        if (updated.currentAmount >= updated.targetAmount && d.currentAmount < d.targetAmount) {
-          confetti({
-            particleCount: 100,
-            spread: 70,
-            origin: { y: 0.6 }
-          });
-        }
-        return updated;
-      }
-      return d;
-    }));
+    const dream = dreams.find(d => d.id === selectedDreamId);
+    if (!dream) return;
 
+    const newAmount = dream.currentAmount + amount;
+    const res = await fetch(`/api/dreams/${selectedDreamId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentAmount: newAmount }),
+    });
+    const updated = await res.json();
+
+    if (newAmount >= dream.targetAmount && dream.currentAmount < dream.targetAmount) {
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+    }
+
+    setDreams(prev => prev.map(d => d.id === selectedDreamId ? updated : d));
     setDepositAmount('');
     setSelectedDreamId(null);
-    confetti({
-        particleCount: 30,
-        spread: 50,
-        origin: { y: 0.8 },
-        colors: ['#FBBF24', '#F59E0B']
-    });
+    confetti({ particleCount: 30, spread: 50, origin: { y: 0.8 }, colors: ['#FBBF24', '#F59E0B'] });
   };
 
   if (isCreating) {

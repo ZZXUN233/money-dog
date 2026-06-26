@@ -4,40 +4,56 @@ import { Dream, DiaryEntry, ChatMessage, Mood, AppView } from './types';
 import ChatInterface from './components/ChatInterface';
 import DreamSystem from './components/DreamSystem';
 import SuccessDiary from './components/SuccessDiary';
-import { initializeChat } from './services/geminiService';
+import { initializeChat } from './services/aiService';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>(AppView.CHAT);
-  
-  // App State
-  // In a real app, these would be persisted in LocalStorage or a Database
   const [dreams, setDreams] = useState<Dream[]>([]);
   const [diaryEntries, setEntries] = useState<DiaryEntry[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-        id: 'init-1',
-        role: 'model',
-        text: '你好呀！我是钱钱。很高兴见到你！我们要一起为了梦想努力哦，汪！',
-        timestamp: Date.now(),
-        mood: Mood.HAPPY
-    }
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [moneyMood, setMoneyMood] = useState<Mood>(Mood.HAPPY);
+  const [loaded, setLoaded] = useState(false);
 
-  // Initialize Gemini Chat Context whenever core data changes significantly
+  // Load data from API on mount
   useEffect(() => {
-    // Only re-initialize if we are actually chatting to keep context fresh
-    // Or do it once on mount and then update prompt context dynamically in deeper implementation
-    // For this MVP, we re-init if dreams/diary is empty on first load to set the stage.
-    initializeChat(dreams, diaryEntries);
-  }, [dreams.length, diaryEntries.length]);
+    Promise.all([
+      fetch('/api/dreams').then(r => r.json()).catch(() => []),
+      fetch('/api/diary').then(r => r.json()).catch(() => []),
+      fetch('/api/messages').then(r => r.json()).catch(() => []),
+    ]).then(([dreamsData, diaryData, messagesData]) => {
+      setDreams(dreamsData);
+      setEntries(diaryData);
+      if (messagesData.length > 0) {
+        setMessages(messagesData.map((m: any) => ({
+          ...m,
+          timestamp: Number(m.timestamp),
+        })));
+      } else {
+        setMessages([{
+          id: 'init-1',
+          role: 'model',
+          text: '你好呀！我是钱钱。很高兴见到你！我们要一起为了梦想努力哦，汪！',
+          timestamp: Date.now(),
+          mood: Mood.HAPPY,
+        }]);
+      }
+      setLoaded(true);
+    });
+  }, []);
+
+  // Initialize AI Chat Context when data changes
+  useEffect(() => {
+    if (loaded) {
+      initializeChat(dreams, diaryEntries);
+    }
+  }, [loaded, dreams.length, diaryEntries.length]);
 
   const renderView = () => {
     switch (currentView) {
       case AppView.CHAT:
         return (
-          <ChatInterface 
-            messages={messages} 
+          <ChatInterface
+            messages={messages}
             setMessages={setMessages}
             moneyMood={moneyMood}
             setMoneyMood={setMoneyMood}
@@ -46,17 +62,17 @@ const App: React.FC = () => {
         );
       case AppView.DREAMS:
         return (
-          <DreamSystem 
-            dreams={dreams} 
+          <DreamSystem
+            dreams={dreams}
             setDreams={setDreams}
             onBack={() => setCurrentView(AppView.CHAT)}
           />
         );
       case AppView.DIARY:
         return (
-          <SuccessDiary 
-            entries={diaryEntries} 
-            setEntries={setEntries} 
+          <SuccessDiary
+            entries={diaryEntries}
+            setEntries={setEntries}
             setMoneyMood={setMoneyMood}
           />
         );
@@ -67,30 +83,26 @@ const App: React.FC = () => {
 
   return (
     <div className="max-w-md mx-auto h-screen bg-white shadow-2xl flex flex-col overflow-hidden relative">
-      {/* Main Content Area */}
       <div className="flex-1 overflow-hidden relative">
         {renderView()}
       </div>
 
-      {/* Bottom Navigation */}
       <div className="h-16 bg-white border-t border-gray-100 flex justify-around items-center px-2 z-20 shadow-[0_-5px_15px_rgba(0,0,0,0.02)]">
-        <button 
+        <button
           onClick={() => setCurrentView(AppView.CHAT)}
           className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${currentView === AppView.CHAT ? 'text-amber-500' : 'text-gray-400 hover:text-gray-600'}`}
         >
           <MessageCircle size={24} strokeWidth={currentView === AppView.CHAT ? 2.5 : 2} />
           <span className="text-[10px] font-medium">钱钱</span>
         </button>
-        
-        <button 
+        <button
           onClick={() => setCurrentView(AppView.DREAMS)}
           className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${currentView === AppView.DREAMS ? 'text-amber-500' : 'text-gray-400 hover:text-gray-600'}`}
         >
           <Target size={24} strokeWidth={currentView === AppView.DREAMS ? 2.5 : 2} />
           <span className="text-[10px] font-medium">梦想</span>
         </button>
-
-        <button 
+        <button
           onClick={() => setCurrentView(AppView.DIARY)}
           className={`flex flex-col items-center gap-1 p-2 w-16 transition-colors ${currentView === AppView.DIARY ? 'text-amber-500' : 'text-gray-400 hover:text-gray-600'}`}
         >

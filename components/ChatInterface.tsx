@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, Sparkles } from 'lucide-react';
 import { ChatMessage, Mood, AppView } from '../types';
 import MoneyAvatar from './MoneyAvatar';
-import { sendMessageToMoney } from '../services/geminiService';
+import { sendMessageToMoney } from '../services/aiService';
 
 interface ChatInterfaceProps {
   messages: ChatMessage[];
@@ -31,27 +31,35 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     scrollToBottom();
   }, [messages, isTyping]);
 
+  const saveMessage = async (msg: ChatMessage) => {
+    await fetch('/api/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(msg),
+    });
+  };
+
   const handleSendMessage = async () => {
     if (!inputText.trim()) return;
 
+    const now = Date.now();
     const userMsg: ChatMessage = {
-      id: Date.now().toString(),
+      id: now.toString(),
       role: 'user',
       text: inputText,
-      timestamp: Date.now(),
+      timestamp: now,
     };
 
     setMessages(prev => [...prev, userMsg]);
     setInputText('');
     setIsTyping(true);
     setMoneyMood(Mood.LISTENING);
+    saveMessage(userMsg);
 
-    // AI Response
     const aiResponseText = await sendMessageToMoney(inputText);
-    
+
     setIsTyping(false);
-    
-    // Simple sentiment analysis for mood (could be improved with actual AI analysis)
+
     let nextMood = Mood.HAPPY;
     if (aiResponseText.includes('棒') || aiResponseText.includes('太好')) nextMood = Mood.EXCITED;
     if (aiResponseText.includes('担心') || aiResponseText.includes('哎呀')) nextMood = Mood.WORRIED;
@@ -62,10 +70,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       role: 'model',
       text: aiResponseText,
       timestamp: Date.now(),
-      mood: nextMood
+      mood: nextMood,
     };
 
     setMessages(prev => [...prev, aiMsg]);
+    saveMessage(aiMsg);
   };
 
   const handleQuickAction = (action: string) => {

@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Dream {
+  id            String   @id @default(cuid())
+  title         String
+  targetAmount  Float
+  currentAmount Float    @default(0)
+  deadline      String   @default("未定")
+  coverImage    String
+  createdAt     BigInt   @default(0)
+  updatedAt     BigInt   @default(0)
+
+  @@map("dreams")
+}
+
+model DiaryEntry {
+  id        String  @id @default(cuid())
+  date      String
+  content   String
+  aiComment String? @db.Text
+  createdAt BigInt  @default(0)
+
+  @@map("diary_entries")
+}
+
+model ChatMessage {
+  id        String  @id @default(cuid())
+  role      String
+  text      String  @db.Text
+  timestamp BigInt
+  mood      String?
+  createdAt BigInt  @default(0)
+
+  @@map("chat_messages")
+}
